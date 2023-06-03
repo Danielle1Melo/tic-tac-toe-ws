@@ -137,6 +137,10 @@ wsServer.on("connection", (ws) => {
       return;
     }
 
+    if (message.kind == "reset") {
+      resetGameState();
+    }
+
     if (message.kind == "newPlayer") {
       if (players.length >= maxPlayers) {
         ws.send(JSON.stringify({ aceito: false }));
