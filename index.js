@@ -60,7 +60,7 @@ const winningCombinations = [
   ],
 ];
 
-let players = ["danielle", "eclesio"];
+let players = [];
 let currentGameMovements = [
   [0, 0, 0],
   [0, 0, 0],
@@ -68,8 +68,17 @@ let currentGameMovements = [
 ];
 
 let previousMovement = "";
-let winner = "";
-let drawGame = false;
+
+const resetGameState = () => {
+  players = [];
+  currentGameMovements = [
+    [0, 0, 0],
+    [0, 0, 0],
+    [0, 0, 0],
+  ];
+
+  previousMovement = "";
+};
 
 const checkForDraw = () => {
   let isDraw = true;
@@ -136,16 +145,18 @@ wsServer.on("connection", (ws) => {
 
       console.log("JOGADOR ACEITO! -> %s", message.name);
       players.push(message.name);
-      ws.send(JSON.stringify({ aceito: true }));
+      ws.send(
+        JSON.stringify({
+          kind: "join",
+          aceito: true,
+          isX: players.length == 1,
+        })
+      );
 
       return;
     }
 
     if (message.kind == "movement") {
-      if (winner != "" || drawGame) {
-        return;
-      }
-
       if (players.length != 2) {
         return;
       }
@@ -171,27 +182,42 @@ wsServer.on("connection", (ws) => {
         return;
       }
 
+      message.kind = "movementCompleted";
+      wsServer.clients.forEach((c) => {
+        c.send(JSON.stringify(message));
+      });
+
       previousMovement = player;
       console.table(currentGameMovements);
 
       let isWinner = checkForWin(1);
       if (isWinner) {
-        ws.send(JSON.stringify({ winner: players[0] }));
-        winner = players[0];
+        wsServer.clients.forEach((c) => {
+          c.send(JSON.stringify({ kind: "gameEnd", winner: players[0] }));
+        });
+
+        resetGameState();
+
         return;
       }
 
       isWinner = checkForWin(2);
       if (isWinner) {
-        ws.send(JSON.stringify({ winner: players[1] }));
-        winner = players[1];
+        wsServer.clients.forEach((c) => {
+          c.send(JSON.stringify({ kind: "gameEnd", winner: players[1] }));
+        });
+
+        resetGameState();
         return;
       }
 
       const isDraw = checkForDraw();
       if (isDraw) {
-        ws.send(JSON.stringify({ draw: true }));
-        drawGame = true;
+        wsServer.clients.forEach((c) => {
+          c.send(JSON.stringify({ kind: "gameEnd", draw: true }));
+        });
+
+        resetGameState();
         return;
       }
     }
